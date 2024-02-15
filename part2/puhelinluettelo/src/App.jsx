@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import personService from './services/persons'
+
 
 const FilterForm = ({ searchValue, handleSearchChange }) => {
   return (
@@ -31,55 +33,101 @@ const PersonForm = ({ newName, newNumber, handleNameChange, handleNumberChange, 
 }
 
 
-const Persons = ({ persons }) => {
-  return (
-    <div>
-      {persons.map((person) => (
-        <div key={person.name}>
-          {person.name} {person.number}
-        </div>
-      ))}
-    </div>
+const Persons = ({ persons, searchValue, onDelete }) => {
+  const filteredItems = persons.filter((person) =>
+    person.name.toLowerCase().includes(searchValue.toLowerCase()
+    ))
+
+    return (
+      <div>
+        {filteredItems.map((person) => (
+          <div key={person.id}>
+            {person.name} {person.number}
+            <button onClick={() => onDelete(person.id)}>Delete</button>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+const Notification = ({message, type}) => {
+  if (!message) {
+    return null
+  }
+
+  return(
+  <div className={type ?'notification': 'error'}>{message}</div>
   )
 }
 
-
 const App = () => {
-//Tämä rivi käyttää useState luodakseen tilan nimeltä persons,
-//joka alustetaan yhdellä henkilöobjektilla, jonka nimi on 'Arto Hellas'.
-//setPersons-funktiota käytetään myöhemmin päivittämään tätä tilaa.
-  const [persons, setPersons] = useState([
-    { name: 'Arto Hellas', number: '040-1231244' },
-    { name: 'Ada Lovelace', number: '39-44-5323523' },
-    { name: 'Dan Abramov', number: '12-43-234345' },
-    { name: 'Mary Poppendieck', number: '39-23-6423122' }
-  ])
-
+  const [persons, setPersons] = useState([])
   const [newName, setNewName] = useState('')
-
   const [newNumber, setNewNumber] = useState('')
-
   const [searchValue, setSearchValue] = useState('')
+  const [notification, setNotification] = useState(null)
+  const [type, setType] = useState(true)
 
-  const [filteredNames, setFilteredNames]= useState(persons)
+  useEffect(() => {
+    personService.getAll()
+      .then(response => {
+        const initialPersons = response.data
+        setPersons(initialPersons)
+      })
+      .catch(error => {
+        console.error('Error fetching data:', error)
+      })
+  }, [])
 
   const addContact = (event) => {
     event.preventDefault()
 
-    const namesSet = new Set(persons.map((person) => person.name))
-    const contactObject = {
+    const existingPerson = persons.find((person) => person.name === newName)
+
+    if (existingPerson) {
+      if (window.confirm(`${newName} is already added to phonebook, replace the old number with a new one?`)) {
+        const updatedPerson = { ...existingPerson, number: newNumber }
+
+        personService.update(existingPerson.id, updatedPerson)
+        .then(response => {
+          setPersons(persons.map(person =>
+            person.id === existingPerson.id ? response.data : person
+          ))
+          setNewName('')
+          setNewNumber('')
+          setNotification(`Updated ${newName}`)
+          setTimeout(() => {
+            setNotification(null)
+        }, 5000)
+      })
+      .catch(error => {
+        setNotification(`Information of ${newName} has aldready been removed from server`, error)
+        setType(false)
+
+      })
+    }
+  } else {
+    // Person does not exist, add a new contact
+    const newPerson = {
       name: newName,
       number: newNumber
     }
-    if (namesSet.has(newName)){
-      alert(`${newName} is already added to phonebook`)
-    } else {
-//concat yhdistää kaksi tai useampia taulukoita yhdeksi uudeksi taulukoksi,
-//mutta se ei muuta alkuperäisiä taulukoita.
-      setPersons(persons.concat(contactObject))
-      setNewName('')
-      setNewNumber('')
-      setFilteredNames(persons.concat(contactObject));
+
+      personService.create(newPerson)
+      .then(response => {
+        setPersons(prevPersons => [...prevPersons, response.data])
+        setNewName('')
+        setNewNumber('')
+        setNotification(`Added ${newName}`)
+        setTimeout(() => {
+          setNotification(null)
+        }, 5000)
+
+      })
+      .catch(error => {
+        console.error('Error adding contact:', error)
+      })
+
     }
   }
 
@@ -96,14 +144,25 @@ const App = () => {
   const handleSearchChange = (event) => {
     const searchInput = event.target.value
     setSearchValue(searchInput)
-
-    const filteredItems = persons.filter((person) => person.name.toLowerCase().includes(searchInput.toLowerCase()))
-    setFilteredNames(filteredItems)
   }
+
+  const handleDelete = (id) => {
+    if (window.confirm("Delete?")) {
+      personService.remove(id)
+        .then(() => {
+          setPersons(persons.filter(person => person.id !== id))
+        })
+          setNotification('Contact deleted')
+          setTimeout(() => {
+            setNotification(null)
+          }, 5000)
+  }
+}
 
   return (
     <div>
       <h2>Phonebook</h2>
+      <Notification message={notification} type={type}/>
       <FilterForm searchValue={searchValue} handleSearchChange={handleSearchChange} />
       <h2>add a new</h2>
       <PersonForm
@@ -114,7 +173,7 @@ const App = () => {
         addContact={addContact}
       />
       <h2>Numbers</h2>
-      <Persons persons={filteredNames}/>
+      <Persons persons={persons} searchValue={searchValue} onDelete={handleDelete}/>
     </div>
   )
 
