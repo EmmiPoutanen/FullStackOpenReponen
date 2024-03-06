@@ -23,35 +23,22 @@ app.get('/api/persons', (request, response) => {
 app.post('/api/persons', (request, response) => {
   const body = request.body
 
-  if (persons.find((person) => person.name === body.name)){
-    return response.status(400).json({
-      error: 'name must be unique'
-    }
-    )
-  }
-
   if (!body.name || !body.number) {
     return response.status(400).json({
       error: 'content missing'
     })
   }
 
-  const person = {
-    id: generateID(),
+  const person =  new Person({
     name: body.name,
-    number: body.number
-  }
+    number: body.number,
+  })
 
-  persons = persons.concat(person)
-
-  response.json(person)
+  person.save()
+    .then(savedPerson => {
+      response.json(savedPerson)
+    })
 })
-
-const generateID = () => {
-  const randomID = Math.floor(Math.random() * 10000)
-
-  return randomID
-}
 
 app.get('/info', (request, response) => {
   Person.find({}).then(persons => {
@@ -63,21 +50,21 @@ app.get('/info', (request, response) => {
 })
 
 app.get('/api/persons/:id', (request, response) => {
-    const id = request.params.id
-    const person = persons.find(person => person.id == id)
+  Person.findById(request.params.id)
+    .then((person) => {
     if (person) {
     response.json(person)
     } else {
-      response.status(204).end()
+      response.status(404).end()
     }
+  })
 })
 
-
 app.delete('/api/persons/:id', (request, response) => {
-  const id = request.params.id
-  persons = persons.filter(person => person.id !== id)
-
+  Person.findByIdAndDelete(request.params.id)
+  .then(() => {
   response.status(204).end()
+  })
 })
 
 const PORT = process.env.PORT || 3001
