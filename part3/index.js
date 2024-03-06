@@ -6,9 +6,7 @@ const cors = require('cors')
 const Person = require('./models/person')
 
 
-
-app.use(morgan(':method :url :status :res[content-length] - :response-time ms'))``
-
+app.use(morgan(':method :url :status :res[content-length] - :response-time ms'))
 
 app.use(express.static('build'))
 app.use(cors())
@@ -82,7 +80,7 @@ app.delete('/api/persons/:id', (request, response) => {
   response.status(204).end()
 })
 
-const PORT = process.env.PORT
+const PORT = process.env.PORT || 3001
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
 })
