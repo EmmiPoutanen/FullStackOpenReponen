@@ -12,9 +12,32 @@ mongoose.connect(url)
     console.log('error connecting to MongoDB:', error.message)
   })
 
+  const phoneNumberRegex = /^\d{2,3}-\d{7,}/
+
+  const numberValidators = [
+    {
+      validator: function (value) {
+        console.log('Testing phone number:', value);
+        const result = phoneNumberRegex.test(value);
+        console.log('Result:', result);
+        return result;
+    },
+    message: 'Invalid phone number format. Use format like "09-1234567" or "040-1234567".',
+    }
+  ]
+
   const personSchema = new mongoose.Schema({
-    name: String,
-    number: String,
+    name: {
+      type: String,
+      minlength: 3,
+      required: true,
+    },
+    number: {
+      type: String,
+      minlength: 8,
+      required: true,
+      validate: numberValidators,
+    }
   })
 
 personSchema.set('toJSON', {
