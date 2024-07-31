@@ -37,7 +37,7 @@ const errorHandler = (error, request, response, next) => {
 const tokenExtractor = (request, response, next) => {
   const authorization = request.get("authorization");
   if (authorization && authorization.startsWith("Bearer ")) {
-    request.token = authorization.replace("Bearer ", "");
+    request.token = authorization.substring(7);
   } else {
     request.token = null;
   }
@@ -45,19 +45,17 @@ const tokenExtractor = (request, response, next) => {
 };
 
 const userExtractor = (request, response, next) => {
-  const authorization = request.get("authorization");
-  if (authorization && authorization.toLowerCase().startsWith("bearer ")) {
-    const token = authorization.substring(7);
-    try {
-      const decodedToken = jwt.verify(token, process.env.SECRET);
-      request.user = decodedToken;
-    } catch (error) {
-      return response.status(401).json({ error: "Token invalid or missing" });
-    }
-  } else {
+  const token = request.token;
+  if (!token) {
     return response.status(401).json({ error: "Token missing" });
   }
-  next();
+  try {
+    const decodedToken = jwt.verify(token, process.env.SECRET);
+    request.user = decodedToken;
+    next();
+  } catch (error) {
+    return response.status(401).json({ error: "Token invalid" });
+  }
 };
 
 module.exports = {
